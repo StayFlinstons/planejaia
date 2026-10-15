@@ -1,0 +1,15 @@
+{
+  "name": "planejaia",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PlanejaIA — gerenciamento de projetos e tarefas com assistente de IA",
+  "scripts": {
+    "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "test": "npm test --prefix server",
+    "build": "npm run build --prefix client"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

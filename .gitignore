@@ -1,0 +1,21 @@
+# Dependências
+node_modules/
+
+# Builds
+dist/
+build/
+coverage/
+
+# Variáveis de ambiente com credenciais reais (NUNCA publicar)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs e sistema
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

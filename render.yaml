@@ -1,0 +1,28 @@
+# Configuração do back-end no Render (https://render.com) — plano gratuito.
+# No Render: New > Blueprint > escolha este repositório. Ele pedirá os valores marcados com sync: false.
+services:
+  - type: web
+    name: planejaia-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: CLIENT_ORIGIN
+        sync: false   # ex.: https://SEU-USUARIO.github.io  (sem barra e sem o nome do repositório)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-flash-latest
+      - key: AI_RATE_LIMIT
+        value: 20
+      - key: AI_DEMO_MODE
+        value: false

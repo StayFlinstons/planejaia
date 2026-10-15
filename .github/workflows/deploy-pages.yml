@@ -1,0 +1,72 @@
+# Publica o front-end (pasta client) no GitHub Pages a cada envio para a branch main.
+# Configure antes, no repositório:
+#   Settings > Pages > Source: "GitHub Actions"
+#   Settings > Secrets and variables > Actions > aba "Variables":
+#     SUPABASE_URL       -> https://SEU-PROJETO.supabase.co
+#     SUPABASE_ANON_KEY  -> chave publishable (sb_publishable_...) ou anon
+#     API_URL            -> endereço do back-end no Render (ex.: https://planejaia-api.onrender.com)
+# A chave do Gemini NUNCA vai aqui: ela fica só no Render.
+name: Publicar no GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Verificar configuração
+        run: |
+          if [ -z "${{ vars.SUPABASE_URL }}" ] || [ -z "${{ vars.SUPABASE_ANON_KEY }}" ] || [ -z "${{ vars.API_URL }}" ]; then
+            echo "::error::Configure as variáveis SUPABASE_URL, SUPABASE_ANON_KEY e API_URL em Settings > Secrets and variables > Actions > Variables"
+            exit 1
+          fi
+
+      - name: Instalar dependências
+        working-directory: client
+        run: npm ci
+
+      - name: Gerar o site
+        working-directory: client
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          VITE_API_URL: ${{ vars.API_URL }}
+        run: |
+          npm run build
+          # Faz as rotas (/projetos, /tarefas...) funcionarem ao atualizar a página
+          cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: client/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
