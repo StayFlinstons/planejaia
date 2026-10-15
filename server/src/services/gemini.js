@@ -70,16 +70,35 @@ export function parseJson(text) {
   }
 }
 
+// Falhas em que vale a pena tentar outro modelo
+const FALLBACK_CODES = ['unavailable', 'timeout', 'model_not_found', 'rate_limit', 'invalid_response', 'bad_request'];
+
 /**
  * Pede à IA uma resposta em JSON seguindo `schema`.
- * Faz 1 nova tentativa em caso de instabilidade ou resposta inválida.
+ * Tenta o modelo principal e, se ele estiver sobrecarregado, lento ou indisponível,
+ * os modelos reserva (`fallbackModels`), um de cada vez.
  */
-export async function generateJson({
+export async function generateJson({ model, fallbackModels = [], ...opts }) {
+  if (!opts.apiKey) throw aiError('not_configured');
+  const models = [...new Set([model, ...fallbackModels].filter(Boolean))];
+  let lastError;
+  for (const [i, m] of models.entries()) {
+    try {
+      if (i > 0) console.warn(`[gemini] tentando modelo reserva: ${m}`);
+      return await callModel({ ...opts, model: m });
+    } catch (err) {
+      lastError = err;
+      if (!(err instanceof AiError) || !FALLBACK_CODES.includes(err.code)) throw err;
+    }
+  }
+  throw lastError;
+}
+
+/** Chama um modelo específico. Faz 1 nova tentativa em caso de instabilidade ou resposta inválida. */
+async function callModel({
   apiKey, model, system, prompt, schema,
   timeoutMs = 60000, fetchImpl = globalThis.fetch, retries = 1,
 }) {
-  if (!apiKey) throw aiError('not_configured');
-
   const body = {
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -104,13 +123,16 @@ export async function generateJson({
           signal: controller.signal,
         });
       } catch (err) {
-        throw aiError(err?.name === 'AbortError' ? 'timeout' : 'network');
+        const code = err?.name === 'AbortError' ? 'timeout' : 'network';
+        console.error(`[gemini] ${model}: ${code}`);
+        throw aiError(code);
       }
 
       if (!response.ok) {
         const text = await response.text().catch(() => '');
         const code = classifyHttp(response.status, text);
-        console.error(`[gemini] HTTP ${response.status} (${code})`);
+        // O corpo do erro do Google não contém a chave; ajuda a diagnosticar nos logs
+        console.error(`[gemini] ${model}: HTTP ${response.status} (${code}) ${text.replace(/\s+/g, ' ').slice(0, 300)}`);
         throw aiError(code);
       }
 
@@ -119,7 +141,8 @@ export async function generateJson({
       return parseJson(extractText(data));
     } catch (err) {
       lastError = err instanceof AiError ? err : aiError('unavailable');
-      const retryable = ['unavailable', 'invalid_response', 'network'].includes(lastError.code);
+      // 503 do Google costuma ser "modelo sobrecarregado": melhor ir logo para o modelo reserva
+      const retryable = ['invalid_response', 'network'].includes(lastError.code);
       if (!retryable || attempt === retries) throw lastError;
     } finally {
       clearTimeout(timer);

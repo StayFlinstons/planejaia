@@ -106,6 +106,8 @@ export function aiRouter({ generate = generateJson } = {}) {
           raw = await generate({
             apiKey: config.geminiApiKey,
             model: config.geminiModel,
+            fallbackModels: config.geminiFallbackModels,
+            timeoutMs: config.geminiTimeoutMs,
             system: SYSTEM_PROMPT,
             prompt: buildPrompt(mode, mensagem, contextText),
             schema: SCHEMAS[mode],

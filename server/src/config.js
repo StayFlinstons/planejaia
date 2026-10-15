@@ -20,6 +20,10 @@ export const config = {
   supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   geminiModel: process.env.GEMINI_MODEL || 'gemini-flash-latest',
+  // Modelos usados se o principal estiver sobrecarregado ou indisponível (separados por vírgula)
+  geminiFallbackModels: (process.env.GEMINI_FALLBACK_MODELS ?? 'gemini-flash-lite-latest,gemini-2.5-flash')
+    .split(',').map((m) => m.trim()).filter(Boolean),
+  geminiTimeoutMs: int(process.env.GEMINI_TIMEOUT_MS, 40000),
   aiRateLimit: int(process.env.AI_RATE_LIMIT, 20),
   aiDemoMode: bool(process.env.AI_DEMO_MODE, false),
 };

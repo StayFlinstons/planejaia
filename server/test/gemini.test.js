@@ -45,11 +45,29 @@ test('chave inválida', async () => {
   await assert.rejects(generateJson({ ...base, fetchImpl: async () => jsonResponse(403, {}) }), { code: 'auth' });
 });
 
-test('serviço indisponível (503) tenta de novo e depois falha', async () => {
+test('serviço indisponível (503) sem modelo reserva: falha', async () => {
   let calls = 0;
   const fetchImpl = async () => { calls += 1; return jsonResponse(503, {}); };
   await assert.rejects(generateJson({ ...base, fetchImpl }), { code: 'unavailable' });
-  assert.equal(calls, 2);
+  assert.equal(calls, 1);
+});
+
+test('modelo sobrecarregado ou lento: usa o modelo reserva', async () => {
+  const usados = [];
+  const fetchImpl = async (url) => {
+    usados.push(url.split('/models/')[1].split(':')[0]);
+    return usados.length === 1 ? jsonResponse(503, {}) : jsonResponse(200, okBody({ ok: 'reserva' }));
+  };
+  const out = await generateJson({ ...base, fallbackModels: ['reserva-1', 'reserva-2'], fetchImpl });
+  assert.deepEqual(out, { ok: 'reserva' });
+  assert.deepEqual(usados, ['modelo', 'reserva-1']);
+});
+
+test('chave inválida não tenta outros modelos', async () => {
+  let calls = 0;
+  const fetchImpl = async () => { calls += 1; return jsonResponse(403, {}); };
+  await assert.rejects(generateJson({ ...base, fallbackModels: ['reserva'], fetchImpl }), { code: 'auth' });
+  assert.equal(calls, 1);
 });
 
 test('falha de conexão', async () => {
